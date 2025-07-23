@@ -1,0 +1,910 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "RunIndia Organizer Auth API",
+    "version": "1.0.0",
+    "description": "Organizer registration, OTP-based login, password recovery, and KYC upload and event creation."
+  },
+  "tags": [
+    { "name": "Authentication" },
+    { "name": "Organizer" },
+    { "name": "Events" },
+    { "name": "Custom Forms"}
+  ],
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register a new Organizer",
+        "description": "Creates a user and an organizer profile. Sends OTP to email for verification.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "firstName", "lastName", "email", "phone", "password",
+                  "organizationName", "contactEmail", "contactPhone",
+                  "street", "city", "state", "pincode", "country"
+                ],
+                "properties": {
+                  "firstName": { "type": "string", "example": "John" },
+                  "lastName": { "type": "string", "example": "Doe" },
+                  "email": { "type": "string", "format": "email", "example": "john@example.com" },
+                  "phone": { "type": "string", "example": "9876543210" },
+                  "password": { "type": "string", "format": "password", "example": "StrongPass@123" },
+                  "dateOfBirth": { "type": "string", "format": "date", "example": "1990-05-10" },
+                  "organizationName": { "type": "string", "example": "RunIndia Sports" },
+                  "description": { "type": "string", "example": "We organize marathons and sports events." },
+                  "contactEmail": { "type": "string", "format": "email", "example": "info@runindia.org" },
+                  "contactPhone": { "type": "string", "example": "9999988888" },
+                  "street": { "type": "string", "example": "221B Baker Street" },
+                  "city": { "type": "string", "example": "Mumbai" },
+                  "state": { "type": "string", "example": "Maharashtra" },
+                  "pincode": { "type": "string", "example": "400001" },
+                  "country": { "type": "string", "example": "India" },
+                  "primaryColor": { "type": "string", "example": "#ff0000" },
+                  "secondaryColor": { "type": "string", "example": "#00ff00" },
+                  "avatar": { "type": "string", "format": "binary", "description": "User profile picture" },
+                  "logo": { "type": "string", "format": "binary", "description": "Organization logo" },
+                  "banner": { "type": "string", "format": "binary", "description": "Organization banner" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registration successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "Registration successful. OTP sent to email." }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "User with this email already exists." }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/auth/verify": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Verify email OTP",
+        "description": "Verifies the OTP sent to user's email post-registration.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "otp"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "john@example.com" },
+                  "otp": { "type": "string", "example": "123456" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "Email verified successfully." },
+                    "token": { "type": "string", "example": "Bearer eyJhbGciOi..." }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired OTP"
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login with email & password",
+        "description": "Triggers OTP verification if credentials are valid.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "john@example.com" },
+                  "password": { "type": "string", "format": "password", "example": "StrongPass@123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP sent to email",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "OTP sent. Please verify to complete login." },
+                    "email": { "type": "string", "example": "john@example.com" },
+                    "userId": { "type": "string", "example": "64a8e4bcd1899d4c242b9170" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/api/auth/verify-login-otp": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Verify OTP after login",
+        "description": "Verifies OTP sent after email/password login.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "otp"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "john@example.com" },
+                  "otp": { "type": "string", "example": "123456" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP verified, login complete",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "OTP verified. Login complete." },
+                    "token": { "type": "string", "example": "Bearer eyJhbGciOi..." }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired OTP"
+          }
+        }
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Send OTP for password reset",
+        "description": "Sends an OTP to user's email to reset password.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "john@example.com" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP sent for password reset"
+          },
+          "400": {
+            "description": "User not found"
+          }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Reset password using OTP",
+        "description": "Allows user to set a new password after OTP verification.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "otp", "newPassword"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "john@example.com" },
+                  "otp": { "type": "string", "example": "654321" },
+                  "newPassword": { "type": "string", "format": "password", "example": "NewStrongPass@123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset successful"
+          },
+          "400": {
+            "description": "Invalid OTP or missing fields"
+          }
+        }
+      }
+    },
+    "/api/auth/organizer/kyc": {
+      "post": {
+        "tags": ["Organizer"],
+        "summary": "Upload KYC Documents",
+        "description": "Allows an organizer to upload multiple KYC documents.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["documents"],
+                "properties": {
+                  "documents": {
+                    "type": "array",
+                    "items": { "type": "string", "format": "binary" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "KYC documents uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "KYC documents uploaded successfully." },
+                    "documents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string", "example": "kyc" },
+                          "url": { "type": "string", "example": "/uploads/kyc/file.pdf" },
+                          "uploadedAt": { "type": "string", "format": "date-time" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing files"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/events/create": {
+      "post": {
+        "summary": "Create a new event",
+        "tags": ["Events"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "dates"],
+                "properties": {
+                  "title": { "type": "string", "example": "Marathon 2025" },
+                  "slug": { "type": "string", "example": "marathon-2025" },
+                  "description": { "type": "string", "example": "Full details about the marathon" },
+                  "shortDescription": { "type": "string", "example": "Quick summary" },
+                  "images": {
+                    "type": "array",
+                    "items": { "type": "string", "format": "binary" },
+                    "description": "Array of image files"
+                  },
+                  "dates": {
+                    "type": "string",
+                    "example": "{\"startDate\":\"2025-09-15T06:00:00Z\",\"endDate\":\"2025-09-15T12:00:00Z\",\"saleStartDate\":\"2025-08-01T00:00:00Z\",\"saleEndDate\":\"2025-09-14T23:59:59Z\",\"timezone\":\"Asia/Kolkata\"}"
+                  },
+                  "location": {
+                    "type": "string",
+                    "example": "{\"name\":\"Marine Drive\",\"address\":{\"street\":\"Marine Drive Road\",\"city\":\"Mumbai\",\"state\":\"Maharashtra\",\"zipCode\":\"400002\",\"country\":\"India\"},\"coordinates\":{\"type\":\"Point\",\"coordinates\":[72.8238,18.944]},\"venue\":{\"name\":\"Main Stage\",\"capacity\":5000,\"amenities\":[\"parking\",\"food\",\"restrooms\"]}}"
+                  },
+                  "categories": {
+                    "type": "string",
+                    "example": "[\"Running\", \"Fitness\", \"Outdoor\"]"
+                  },
+                  "tags": {
+                    "type": "string",
+                    "example": "[\"Marathon\", \"India\", \"Health\"]"
+                  },
+                  "ageRestrictions": {
+                    "type": "string",
+                    "example": "{\"minAge\":12,\"maxAge\":60,\"requiresGuardian\":false}"
+                  },
+                  "settings": {
+                    "type": "string",
+                    "example": "{\"visibility\":\"public\",\"requiresApproval\":false,\"maxTicketsPerUser\":1,\"transferable\":true,\"refundable\":true,\"cancellationPolicy\":\"Non-refundable after Sept 10\"}"
+                  },
+                  "seo": {
+                    "type": "string",
+                    "example": "{\"metaTitle\":\"RunIndia 2025\",\"metaDescription\":\"India's largest marathon\",\"keywords\":[\"runindia\",\"marathon\",\"fitness\"]}"
+                  },
+                  "stats": {
+                    "type": "string",
+                    "example": "{\"totalTickets\":10000,\"soldTickets\":5000,\"availableTickets\":5000,\"revenue\":250000,\"views\":1500,\"favorites\":200}"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["draft", "active", "cancelled", "completed", "suspended"],
+                    "example": "draft"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Event created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request – Missing title or malformed JSON field" },
+          "403": { "description": "Forbidden – Organizer or user is not active" },
+          "500": { "description": "Internal Server Error" }
+        }
+      }
+    },
+    "/api/events/{eventId}/edit": {
+      "put": {
+        "summary": "Update an existing event by organizer",
+        "tags": ["Events"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "ID of the event to update"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string", "example": "Updated Marathon 2025" },
+                  "slug": { "type": "string", "example": "updated-marathon-2025" },
+                  "description": { "type": "string", "example": "Updated full details" },
+                  "shortDescription": { "type": "string", "example": "Updated summary" },
+                  "images": {
+                    "type": "array",
+                    "items": { "type": "string", "format": "binary" }
+                  },
+                  "dates": {
+                    "type": "string",
+                    "example": "{\"startDate\":\"2025-09-16T06:00:00Z\",\"endDate\":\"2025-09-16T12:00:00Z\",\"saleStartDate\":\"2025-08-01T00:00:00Z\",\"saleEndDate\":\"2025-09-15T23:59:59Z\",\"timezone\":\"Asia/Kolkata\"}"
+                  },
+                  "location": {
+                    "type": "string",
+                    "example": "{\"name\":\"Gateway of India\",\"address\":{\"street\":\"Colaba\",\"city\":\"Mumbai\",\"state\":\"Maharashtra\",\"zipCode\":\"400001\",\"country\":\"India\"},\"coordinates\":{\"type\":\"Point\",\"coordinates\":[72.8358,18.9218]},\"venue\":{\"name\":\"Main Stage\",\"capacity\":4000,\"amenities\":[\"food\",\"water\"]}}"
+                  },
+                  "categories": {
+                    "type": "string",
+                    "example": "[\"Running\", \"Marathon\"]"
+                  },
+                  "tags": {
+                    "type": "string",
+                    "example": "[\"Health\", \"Endurance\"]"
+                  },
+                  "ageRestrictions": {
+                    "type": "string",
+                    "example": "{\"minAge\":15,\"maxAge\":60,\"requiresGuardian\":false}"
+                  },
+                  "settings": {
+                    "type": "string",
+                    "example": "{\"visibility\":\"public\",\"requiresApproval\":false,\"maxTicketsPerUser\":2,\"transferable\":true,\"refundable\":false,\"cancellationPolicy\":\"Non-refundable after Sept 12\"}"
+                  },
+                  "seo": {
+                    "type": "string",
+                    "example": "{\"metaTitle\":\"Updated Marathon\",\"metaDescription\":\"An epic marathon run in Mumbai\",\"keywords\":[\"marathon\",\"fitness\"]}"
+                  },
+                  "organizer": {
+                    "type": "string",
+                    "example": "{\"name\":\"FitEvents Org\",\"logo\":\"/logos/fit.png\",\"slug\":\"fitevents-org\"}"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["draft", "active", "cancelled", "completed", "suspended"],
+                    "example": "active"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request – Missing or malformed field" },
+          "403": { "description": "Forbidden – Unauthorized access" },
+          "404": { "description": "Event not found or not owned by organizer" },
+          "500": { "description": "Internal Server Error" }
+        }
+      }
+    },
+    "/api/events/{eventId}/tickets": {
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create a new ticket type for an event",
+        "description": "Creates a new ticket type with pricing, availability, and other details",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "ID of the event"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "pricing", "availability"],
+                "properties": {
+                  "name": { "type": "string", "example": "VIP Access Pass" },
+                  "description": { "type": "string", "example": "Includes VIP lounge access and premium seating" },
+                  "category": {
+                    "type": "string",
+                    "enum": ["general", "vip", "early_bird", "group"],
+                    "example": "vip"
+                  },
+                  "pricing": {
+                    "type": "string",
+                    "example": "{\"basePrice\": 1000, \"currency\": \"USD\", \"fees\": {\"serviceFee\": 50, \"taxes\": 100}}"
+                  },
+                  "availability": {
+                    "type": "string",
+                    "example": "{\"totalQuantity\": 500, \"salesStart\": \"2025-08-01T00:00:00Z\", \"salesEnd\": \"2025-08-10T00:00:00Z\"}"
+                  },
+                  "restrictions": {
+                    "type": "string",
+                    "example": "{\"minQuantity\": 1, \"maxQuantity\": 5}"
+                  },
+                  "benefits": {
+                    "type": "string",
+                    "example": "[\"Backstage access\", \"Free drinks\"]"
+                  },
+                  "customFields": {
+                    "type": "string",
+                    "example": "[{\"name\": \"mealPreference\", \"type\": \"dropdown\", \"options\": [\"Veg\", \"Non-Veg\"], \"required\": true}]"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["active", "paused", "sold_out", "cancelled"],
+                    "example": "active"
+                  },
+                  "sortOrder": { "type": "integer", "example": 1 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ticket type created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketType"
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Event not found" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/api/events/{eventId}/tickets/{ticketId}": {
+      "put": {
+        "tags": ["Events"],
+        "summary": "Update Ticket Type",
+        "description": "Updates ticket details like pricing, availability, restrictions, etc.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "ticketId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "example": "VIP Access" },
+                  "description": { "type": "string" },
+                  "category": { "type": "string", "enum": ["general", "vip", "early_bird", "group"] },
+                  "pricing": {
+                    "type": "string",
+                    "example": "{\"basePrice\": 1000, \"fees\": {\"serviceFee\": 50, \"taxes\": 100}}"
+                  },
+                  "availability": {
+                    "type": "string",
+                    "example": "{\"totalQuantity\": 100, \"salesStart\": \"2025-08-01T00:00:00Z\", \"salesEnd\": \"2025-08-10T00:00:00Z\"}"
+                  },
+                  "restrictions": {
+                    "type": "string",
+                    "example": "{\"minQuantity\": 1, \"maxQuantity\": 5}"
+                  },
+                  "benefits": {
+                    "type": "string",
+                    "example": "[\"Free T-Shirt\", \"Snacks\"]"
+                  },
+                  "customFields": {
+                    "type": "string",
+                    "example": "[{\"name\":\"shirtSize\",\"type\":\"dropdown\",\"options\":[\"S\",\"M\",\"L\"],\"required\":true}]"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["active", "paused", "sold_out", "cancelled"]
+                  },
+                  "sortOrder": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ticket type updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketType"
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid input" },
+          "404": { "description": "Ticket not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Delete Ticket Type",
+        "description": "Soft deletes a ticket by marking status as cancelled.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "ticketId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ticket soft-deleted"
+          },
+          "404": { "description": "Ticket not found" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TicketType": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "eventId": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "category": {
+            "type": "string",
+            "enum": ["general", "vip", "early_bird", "group"]
+          },
+          "pricing": {
+            "type": "object",
+            "properties": {
+              "basePrice": { "type": "number" },
+              "currency": { "type": "string" },
+              "fees": {
+                "type": "object",
+                "properties": {
+                  "serviceFee": { "type": "number" },
+                  "processingFee": { "type": "number" },
+                  "taxes": { "type": "number" }
+                }
+              },
+              "totalPrice": { "type": "number" },
+              "tierPricing": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "tier": { "type": "integer" },
+                    "price": { "type": "number" },
+                    "quantity": { "type": "integer" },
+                    "sold": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "availability": {
+            "type": "object",
+            "properties": {
+              "totalQuantity": { "type": "integer" },
+              "soldQuantity": { "type": "integer" },
+              "reservedQuantity": { "type": "integer" },
+              "availableQuantity": { "type": "integer" },
+              "salesStart": { "type": "string", "format": "date-time" },
+              "salesEnd": { "type": "string", "format": "date-time" },
+              "unlimitedQuantity": { "type": "boolean" }
+            }
+          },
+          "restrictions": {
+            "type": "object",
+            "properties": {
+              "minQuantity": { "type": "integer" },
+              "maxQuantity": { "type": "integer" },
+              "requiresApproval": { "type": "boolean" },
+              "hiddenUntilDate": { "type": "string", "format": "date-time" }
+            }
+          },
+          "benefits": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "customFields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string" },
+                "options": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "required": { "type": "boolean" }
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "paused", "sold_out", "cancelled"]
+          },
+          "sortOrder": { "type": "integer" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "title": { "type": "string" },
+          "slug": { "type": "string" },
+          "description": { "type": "string" },
+          "shortDescription": { "type": "string" },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": { "type": "string" },
+                "alt": { "type": "string" },
+                "isPrimary": { "type": "boolean" }
+              }
+            }
+          },
+          "dates": {
+            "type": "object",
+            "properties": {
+              "startDate": { "type": "string", "format": "date-time" },
+              "endDate": { "type": "string", "format": "date-time" },
+              "saleStartDate": { "type": "string", "format": "date-time" },
+              "saleEndDate": { "type": "string", "format": "date-time" },
+              "timezone": { "type": "string" }
+            }
+          },
+          "location": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "address": {
+                "type": "object",
+                "properties": {
+                  "street": { "type": "string" },
+                  "city": { "type": "string" },
+                  "state": { "type": "string" },
+                  "zipCode": { "type": "string" },
+                  "country": { "type": "string" }
+                }
+              },
+              "coordinates": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string" },
+                  "coordinates": {
+                    "type": "array",
+                    "items": { "type": "number" }
+                  }
+                }
+              },
+              "venue": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "capacity": { "type": "number" },
+                  "amenities": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "categories": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "ageRestrictions": {
+            "type": "object",
+            "properties": {
+              "minAge": { "type": "number" },
+              "maxAge": { "type": "number" },
+              "requiresGuardian": { "type": "boolean" }
+            }
+          },
+          "settings": {
+            "type": "object",
+            "properties": {
+              "visibility": { "type": "string" },
+              "requiresApproval": { "type": "boolean" },
+              "maxTicketsPerUser": { "type": "number" },
+              "transferable": { "type": "boolean" },
+              "refundable": { "type": "boolean" },
+              "cancellationPolicy": { "type": "string" }
+            }
+          },
+          "seo": {
+            "type": "object",
+            "properties": {
+              "metaTitle": { "type": "string" },
+              "metaDescription": { "type": "string" },
+              "keywords": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          },
+          "organizer": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "logo": { "type": "string" },
+              "slug": { "type": "string" }
+            }
+          },
+          "stats": {
+            "type": "object",
+            "properties": {
+              "totalTickets": { "type": "number" },
+              "soldTickets": { "type": "number" },
+              "availableTickets": { "type": "number" },
+              "revenue": { "type": "number" },
+              "views": { "type": "number" },
+              "favorites": { "type": "number" }
+            }
+          },
+          "status": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

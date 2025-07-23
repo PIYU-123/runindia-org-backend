@@ -1,0 +1,173 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\Game;
+use App\Models\GameResult;
+use Carbon\Carbon;
+
+class HomeController extends Controller
+{
+    public function index()
+{
+    // Get all active games with today's result
+    $games = Game::with(['results' => function($query) {
+        $query->whereDate('date', today());
+    }])
+    ->where('active', true)
+    ->orderBy('id')
+    ->get();
+
+    // Get game rates (now independent of games)
+    $gameRates = app(GameRateController::class)->getRatesForHome();
+
+    return view('home', compact('games', 'gameRates'));
+}
+
+     public function jodiCharts($gameId = null)
+    {
+        $games = Game::where('active', true)->get();
+        $selectedGameId = request('game_id', $gameId ?? $games->first()->id ?? null);
+        
+        // Get the selected game with validation
+        $selectedGame = Game::find($selectedGameId);
+        if (!$selectedGame) {
+            abort(404, 'Game not found');
+        }
+
+        $gameResults = GameResult::with('game')
+            ->where('game_id', $selectedGameId)
+            ->where('status', 'declared')
+            ->orderBy('date', 'asc')
+            ->get();
+
+        // Organize data by weeks (Monday to Sunday)
+        $weeklyData = [];
+        foreach ($gameResults as $result) {
+            $date = Carbon::parse($result->date);
+            $weekStart = $date->copy()->startOfWeek(Carbon::MONDAY);
+            $weekEnd = $weekStart->copy()->endOfWeek(Carbon::SUNDAY);
+            $weekKey = $weekStart->format('Y-m-d');
+            
+            if (!isset($weeklyData[$weekKey])) {
+                $weeklyData[$weekKey] = [
+                    'date_range' => $weekStart->format('d-m-y') . ' TO ' . $weekEnd->format('d-m-y'),
+                    'start_date' => $weekStart->format('d-m-y'),
+                    'end_date' => $weekEnd->format('d-m-y'),
+                    'days' => array_fill_keys(
+                        ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+                        null
+                    )
+                ];
+            }
+            
+            $dayName = $date->format('l');
+            
+            // Format digits for jodi chart - properly handle zero values
+            $openDigit = $result->open_digit !== null ? (string)$result->open_digit : null;
+            $closeDigit = $result->close_digit !== null ? (string)$result->close_digit : null;
+            
+            if ($openDigit !== null && $closeDigit !== null) {
+                $digits = $openDigit . $closeDigit;
+            } elseif ($openDigit !== null) {
+                $digits = $openDigit;
+            } elseif ($closeDigit !== null) {
+                $digits = $closeDigit;
+            } else {
+                $digits = null;
+            }
+            
+            $weeklyData[$weekKey]['days'][$dayName] = $digits;
+        }
+
+        // Sort weeks by date (ascending order - oldest first)
+        ksort($weeklyData);
+
+        return view('jodi-charts', [
+            'games' => $games,
+            'selectedGameId' => $selectedGameId,
+            'selectedGame' => $selectedGame,
+            'weeklyData' => array_values($weeklyData)
+        ]);
+    }
+
+    public function panaCharts($gameId = null)
+    {
+        $games = Game::where('active', true)->get();
+        $selectedGameId = request('game_id', $gameId ?? $games->first()->id ?? null);
+        
+        // Get the selected game with validation
+        $selectedGame = Game::find($selectedGameId);
+        if (!$selectedGame) {
+            abort(404, 'Game not found');
+        }
+
+        $gameResults = GameResult::with('game')
+            ->where('game_id', $selectedGameId)
+            ->where('status', 'declared')
+            ->orderBy('date', 'asc')
+            ->get();
+
+        // Organize data by weeks (Monday to Sunday)
+        $weeklyData = [];
+        foreach ($gameResults as $result) {
+            $date = Carbon::parse($result->date);
+            $weekStart = $date->copy()->startOfWeek(Carbon::MONDAY);
+            $weekEnd = $weekStart->copy()->endOfWeek(Carbon::SUNDAY);
+            $weekKey = $weekStart->format('Y-m-d');
+            
+            if (!isset($weeklyData[$weekKey])) {
+                $weeklyData[$weekKey] = [
+                    'start_date' => $weekStart->format('d-m-Y'),
+                    'end_date' => $weekEnd->format('d-m-Y'),
+                    'days' => array_fill_keys(
+                        ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+                        null
+                    )
+                ];
+            }
+            
+            $dayName = $date->format('l');
+            
+            // Format the panel data
+            $openPana = $result->open_pana ?? '***';
+            $openDigit = $result->open_digit ?? '*';
+            $closePana = $result->close_pana ?? '***';
+            $closeDigit = $result->close_digit ?? '*';
+            
+            // Calculate totals
+            $openTotal = $this->calculateTotal($openPana);
+            $closeTotal = $this->calculateTotal($closePana);
+            
+            $weeklyData[$weekKey]['days'][$dayName] = [
+                'open_pana' => $openPana,
+                'open_digit' => $openDigit,
+                'close_pana' => $closePana,
+                'close_digit' => $closeDigit,
+                'open_total' => $openTotal,
+                'close_total' => $closeTotal,
+                'combined_total' => $openTotal . $closeTotal
+            ];
+        }
+
+        // Sort weeks by date (ascending order - oldest first)
+        ksort($weeklyData);
+
+        return view('pana-charts', [
+            'games' => $games,
+            'selectedGameId' => $selectedGameId,
+            'selectedGame' => $selectedGame,
+            'weeklyData' => array_values($weeklyData)
+        ]);
+    }
+
+    private function calculateTotal($pana)
+    {
+        if (!$pana || $pana === '***') return '';
+        
+        $digits = str_split($pana);
+        $sum = array_sum($digits);
+        return $sum % 10; // Return last digit of sum
+    }
+}
